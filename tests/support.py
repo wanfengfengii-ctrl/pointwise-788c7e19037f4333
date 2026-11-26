@@ -43,6 +43,33 @@ def origins(payload):
     return [(entry['source_kind'], entry['source_id']) for entry in payload['timeline']]
 
 
+@contextmanager
+def commit_failure(database, table):
+    # A real deferred constraint fails COMMIT after the handler has done its writes.
+    if table not in {'receipts', 'editions'}:
+        raise ValueError('unsupported commit failure target')
+    with closing(sqlite3.connect(database)) as db:
+        db.executescript(f'''
+            CREATE TABLE test_commit_parent (id INTEGER PRIMARY KEY);
+            CREATE TABLE test_commit_child (
+                parent_id INTEGER REFERENCES test_commit_parent(id) DEFERRABLE INITIALLY DEFERRED
+            );
+            CREATE TRIGGER test_reject_commit AFTER INSERT ON {table}
+            BEGIN
+                INSERT INTO test_commit_child VALUES (1);
+            END;
+        ''')
+    try:
+        yield
+    finally:
+        with closing(sqlite3.connect(database)) as db:
+            db.executescript('''
+                DROP TRIGGER test_reject_commit;
+                DROP TABLE test_commit_child;
+                DROP TABLE test_commit_parent;
+            ''')
+
+
 class RunningService:
     def __init__(self, database):
         self.database = database
@@ -145,26 +172,5 @@ class WorkbenchTest(unittest.TestCase):
 
     @contextmanager
     def fail_commit_on(self, table):
-        # A real deferred constraint fails COMMIT after the handler has done its writes.
-        if table not in {'receipts', 'editions'}:
-            raise ValueError('unsupported commit failure target')
-        with closing(sqlite3.connect(self.database)) as db:
-            db.executescript(f'''
-                CREATE TABLE test_commit_parent (id INTEGER PRIMARY KEY);
-                CREATE TABLE test_commit_child (
-                    parent_id INTEGER REFERENCES test_commit_parent(id) DEFERRABLE INITIALLY DEFERRED
-                );
-                CREATE TRIGGER test_reject_commit AFTER INSERT ON {table}
-                BEGIN
-                    INSERT INTO test_commit_child VALUES (1);
-                END;
-            ''')
-        try:
+        with commit_failure(self.database, table):
             yield
-        finally:
-            with closing(sqlite3.connect(self.database)) as db:
-                db.executescript('''
-                    DROP TRIGGER test_reject_commit;
-                    DROP TABLE test_commit_child;
-                    DROP TABLE test_commit_parent;
-                ''')

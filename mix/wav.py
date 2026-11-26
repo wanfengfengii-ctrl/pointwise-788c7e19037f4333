@@ -5,6 +5,17 @@ import wave
 from source.pcm import PCM_SAMPLE_BYTES
 
 
+def decode_wav(recording: bytes) -> tuple[bytes, int]:
+    """Return (pcm_s16le, sample_rate) from a stored mono 16-bit WAV."""
+    with wave.open(io.BytesIO(recording), 'rb') as stream:
+        if stream.getnchannels() != 1 or stream.getsampwidth() != PCM_SAMPLE_BYTES:
+            raise ValueError('expected mono 16-bit WAV')
+        if stream.getcomptype() != 'NONE':
+            raise ValueError('expected uncompressed PCM WAV')
+        pcm = stream.readframes(stream.getnframes())
+        return pcm, stream.getframerate()
+
+
 def encode_wav(pcm: bytes, sample_rate: int) -> bytes:
     if not pcm or len(pcm) % PCM_SAMPLE_BYTES:
         raise ValueError('WAV requires nonempty, frame-aligned PCM')

@@ -14,6 +14,7 @@ from dubbing.takes import ensure_take_schema
 from edit.drafts import ensure_draft_schema
 from edit.revisions import ensure_revision_schema
 from edit.routes import EDIT_ROUTES
+from mix.auditions import ensure_audition_schema
 from mix.routes import MIX_ROUTES
 from release.editions import ensure_edition_schema
 from release.routes import RELEASE_ROUTES
@@ -26,7 +27,8 @@ DEFAULT_PROGRAMS = (ProgramSpec('G', 8000),)
 SCHEMA_STEPS = (
     ensure_program_schema, ensure_source_schema, ensure_segment_schema,
     ensure_revision_schema, ensure_draft_schema, ensure_order_schema,
-    ensure_take_schema, ensure_receipt_schema, ensure_edition_schema,
+    ensure_take_schema, ensure_receipt_schema, ensure_audition_schema,
+    ensure_edition_schema,
 )
 ROUTES = tuple(
     (method, re.compile(pattern), handler)
